@@ -1,0 +1,50 @@
+#!/usr/bin/php
+<?php
+
+require("a2.php");
+
+// PROGRAM BODY BEGINS
+
+$usage = "Usage: $argv[0] Title";
+$db = dbConnect(DB_CONNECTION);
+
+// Check arguments
+if (count($argv) < 2) exit("$usage\n");
+
+// firstly, we need get the actor
+$title = $argv[1];
+$title = "%".$title."%";
+
+$query = <<<QUERY
+    SELECT m.title, m.year, m.content_rating, ra.imdb_score, string_agg(g.genre,',' order by g.genre ASC ) as genre
+    FROM movie m, rating ra, genre g
+    WHERE ra.movie_id = m.id AND g.movie_id =  m.id AND m.id in (
+        SELECT id FROM movie WHERE lower(title) LIKE %s
+    ) GROUP BY m.title, m.year, m.content_rating, ra.imdb_score
+    ORDER BY m.year ASC , ra.imdb_score DESC, m.title ASC ;
+QUERY;
+
+$res = dbQuery($db, mkSQL($query, $title));
+
+// Iterate through the results and print
+$index = 1;
+while ($tuple = dbNext($res)) {
+
+    echo "$index. $tuple[0] (";
+    if (!empty($tuple[1])) {
+        echo  "$tuple[1], ";
+    }
+
+    if (!empty($tuple[2])) {
+        echo  "$tuple[2], ";
+    }
+
+    if (!empty($tuple[3])) {
+        echo "$tuple[3]";
+    }
+    echo ")";
+    echo " [". $tuple[4]."]\n";
+    $index ++;
+}
+
+?>

@@ -1,0 +1,93 @@
+#!/usr/bin/php
+<?php
+
+require("a2.php");
+
+// PROGRAM BODY BEGINS
+
+$usage = "Usage: $argv[0] MovieTitle Number";
+$db = dbConnect(DB_CONNECTION);
+
+// Check arguments
+if (count($argv) < 2) exit("$usage\n");
+
+// firstly, we need get the actor
+$title = $argv[1];
+$limit = $argv[2];
+
+
+$query = <<<QUERY
+   CREATE OR REPLACE FUNCTION intersection(anyarray, anyarray) RETURNS anyarray
+   as $$
+        SELECT ARRAY(
+            SELECT UNNEST($1)
+            INTERSECT
+            SELECT UNNEST($2)
+        );
+    $$ language sql;
+    
+   create or replace view search_movie as
+    select m.id, array_agg(g.genre) as genre, array_agg(k.keyword) as keyword
+    from movie m, genre g, keyword k
+    where m.id = g.movie_id and m.id = k.movie_id and m.id in (
+        SELECT id FROM movie WHERE lower(m.title) = lower(%s)
+    ) group by m.id;
+    
+    CREATE OR REPLACE VIEW rest_genre as
+      SELECT m.id, array_agg(g.genre) as genre
+      FROM movie m left outer join genre g
+      ON   m.id = g.movie_id
+      GROUP BY m.id;
+      
+    CREATE OR REPLACE VIEW rest_keyword as
+      SELECT m.id, array_agg(k.keyword) as keyword
+      FROM movie m left outer join keyword k
+      ON   k.movie_id =  m.id
+      GROUP BY m.id;
+    
+   create or replace view genre_keyword_compare as
+    select rk.id, COALESCE(array_length(intersection(sm.genre[:], rg.genre[:]), 1),0) as genre,
+    COALESCE(array_length(intersection(sm.keyword[:], rk.keyword[:]), 1),0) as keyword
+    FROM search_movie sm, rest_genre rg, rest_keyword rk WHERE rk.id = rg.id;
+    
+   create or replace view final_res as
+    select m.title, m.year, ra.imdb_score, ra.num_voted_users, fr.genre, fr.keyword
+    from genre_keyword_compare fr, movie m, rating ra
+    where fr.id = m.id and ra.movie_id = m.id and lower(m.title) <> lower(%s)
+    Order by genre DESC , keyword DESC, imdb_score DESC, num_voted_users DESC;
+    
+   select * from final_res where genre is not null limit %d;
+QUERY;
+
+
+$res = dbQuery($db, mkSQL($query, $title,$title, $limit));
+
+// Iterate through the results and print
+$index = 1;
+while ($tuple = dbNext($res)) {
+
+    echo "$index. $tuple[0] ";
+    if (!empty($tuple[1])) {
+
+        echo  "($tuple[1])";
+    }
+
+    if (!empty($tuple[4])) {
+        echo  "[$tuple[4], ";
+    }
+
+    echo "$tuple[5], ";
+
+    if (!empty($tuple[2])) {
+        echo "$tuple[2], ";
+    }
+
+    if (!empty($tuple[3])) {
+        echo "$tuple[3]]\n";
+    }
+
+    $index ++;
+}
+
+
+?>

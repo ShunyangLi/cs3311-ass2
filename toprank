@@ -1,0 +1,118 @@
+#!/usr/bin/php
+<?php
+
+require("a2.php");
+
+// PROGRAM BODY BEGINS
+
+$usage = "Usage: $argv[0] K StartYear EndYear\nUsage: $argv[0] Genres K StartYear EndYear";
+$db = dbConnect(DB_CONNECTION);
+
+// Check arguments
+if (count($argv) < 4) exit("$usage\n");
+
+// firstly, we need get the actor
+if (count($argv) == 4) {
+
+    three_args($db, $argv[2], $argv[3], $argv[1]);
+} elseif (count($argv) == 5) {
+    $all_genres = $argv[1];
+    $limit = $argv[2];
+    $start = $argv[3];
+    $end = $argv[4];
+    // we need the string like: %Action%Sci-Fi"
+    // because my sql merge all of them together with order like: Action, Sci-Fi
+    $genre = "%";
+    // it's gonna do something for genre
+    $genres = explode("&", $all_genres);
+    // beacause i merge all the genre with ASC order
+    // so i need to sort here also
+    sort($genres);
+
+    $genre .= join("%", $genres);
+    $genre .= "%";
+
+    four_args($db, $genre,$start,$end,$limit);
+}
+
+
+
+
+function three_args ($db,$start, $end, $limit) {
+
+    make_view($db, $start, $end);
+    $query = <<<QUE
+    SELECT * FROM task3 limit %d
+QUE;
+
+    $res = dbQuery($db,mkSQL($query, $limit));
+    show_res($res);
+
+}
+
+function four_args ($db, $genre, $start, $end, $limit) {
+    make_view($db, $start, $end);
+
+    $query = <<<QUE
+    select * from task3 where genre like %s  limit %d; 
+QUE;
+
+    $res = dbQuery($db, mkSQL($query, $genre, $limit));
+    show_res($res);
+}
+
+
+function make_view($db, $start, $end) {
+
+    $view = <<<MAKEVIEW
+    CREATE OR REPLACE VIEW task3 AS
+    SELECT m.title, m.year, m.content_rating, m.lang, ra.imdb_score, string_agg(g.genre,',' order by g.genre ASC ) as genre, ra.num_voted_users
+    FROM movie m, rating ra, genre g
+    WHERE ra.movie_id = m.id AND g.movie_id =  m.id AND m.id in (
+        SELECT id FROM movie WHERE m.year >= %d AND m.year <= %d
+    ) GROUP BY m.title, m.year, m.content_rating, ra.imdb_score, ra.num_voted_users, m.lang
+    ORDER BY imdb_score DESC, num_voted_users DESC ;
+MAKEVIEW;
+
+    dbQuery($db, mkSQL($view, $start, $end));
+}
+
+function drop_view($db) {
+    $query = "DROP VIEW task3";
+    dbQuery($db, mkSQL($query));
+}
+
+function show_res($res) {
+    $index = 1;
+    while ($tuple = dbNext($res)) {
+
+        echo "$index. $tuple[0] (";
+        if (!empty($tuple[1])) {
+            echo  "$tuple[1], ";
+        }
+
+        if (!empty($tuple[2])) {
+            echo  "$tuple[2], ";
+        }
+
+        if (!empty($tuple[3])) {
+            echo "$tuple[3]";
+        }
+        echo ")";
+        echo " [";
+        if (!empty($tuple[4])) {
+            echo "$tuple[4]";
+        }
+        if (!empty($tuple[6])) {
+            echo ", $tuple[6]";
+        }
+
+        echo "]\n";
+        $index ++;
+    }
+}
+
+// after finish that, then drop it
+drop_view($db);
+
+?>

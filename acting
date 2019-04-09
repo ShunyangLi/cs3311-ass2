@@ -1,0 +1,52 @@
+#!/usr/bin/php
+<?php
+
+require("a2.php");
+
+// PROGRAM BODY BEGINS
+
+$usage = "Usage: $argv[0] Actor";
+$db = dbConnect(DB_CONNECTION);
+
+// Check arguments
+if (count($argv) < 2) exit("$usage\n");
+
+// firstly, we need get the actor
+$actor = $argv[1];
+
+// TODO if year is empty, then output it at the end
+$query = <<< QUERY
+      SELECT m.title, di.name, m.year, m.content_rating, ra.imdb_score
+      FROM movie m, director di, rating ra
+      WHERE m.id in (
+        SELECT ai.movie_id
+        FROM actor ac, acting ai
+        WHERE lower(ac.name) = lower(%s)
+          AND ai.actor_id = ac.id
+      ) AND di.id = m.director_id
+      AND ra.movie_id = m.id ORDER BY m.year NULLS LAST, m.title;
+QUERY;
+
+$res = dbQuery($db, mkSQL($query, $actor));
+
+// Iterate through the results and print
+$index = 1;
+while ($tuple = dbNext($res)) {
+    echo "$index. $tuple[0] -- $tuple[1] (";
+    if (!empty($tuple[2])) {
+        echo  "$tuple[2]";
+    }
+
+    if (!empty($tuple[3])) {
+        echo  ", $tuple[3]";
+    }
+
+    if (!empty($tuple[4])) {
+        echo ", $tuple[4]";
+    }
+
+    echo ")\n";
+    $index ++;
+}
+
+?>

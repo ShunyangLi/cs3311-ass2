@@ -1,0 +1,16 @@
+#!/usr/bin/php
+<?php
+
+//
+// pg - print all PG and PG-13 movies of a given year
+//
+
+// include the common PHP code file
+
+$arr = [[0,1],[2,3],[4,5]];
+
+for ($i = 0; $i < count($arr) - 1; $i++) {
+    print(array_merge($arr[$i], $arr[$i+1]));
+}
+
+?>
