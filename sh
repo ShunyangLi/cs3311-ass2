@@ -151,7 +151,7 @@ if (count($final) > 1) {
 
 sort($last);
 for ($i = 0; $i < count($last); $i ++) {
-    echo "$num.";
+    echo "$num. ";
     print($last[$i]);
     echo "\n";
     $num ++;
