@@ -23,58 +23,47 @@ ACTORID;
 $actor_id = dbNext(dbQuery($db, mkSQL($get_actor_id, $name)));
 
 $query = <<<QUERY
-    drop index if exists ac;
-    create index ac on acting(actor_id, movie_id);
-    drop index if exists a;
-    create index a on actor(id);
-    
-    create or replace view degrees(degree, actors) as
-      select 1, array_agg(a.id)::int[] from actor a where a.id in (WITH RECURSIVE path (movie_id, d, vv) AS (
-            SELECT ac.movie_id, 1, array [ac.actor_id]
-            FROM acting ac
-            WHERE actor_id = %d
+  DROP INDEX IF EXISTS ac;
+  CREATE INDEX ac ON acting(actor_id, movie_id);
+  DROP INDEX IF EXISTS a;
+  CREATE INDEX a ON actor(id);
 
-            UNION ALL
 
-            SELECT ac.movie_id, p.d + 1, vv||ac.actor_id
-            FROM path p, acting ac
-            WHERE ac.movie_id = p.movie_id
-              and not (ac.actor_id = any(vv))
-            AND p.d < 2
-    )
-    SELECT unnest(vv) FROM path where d > 1 and id != %d order by lower(name) ASC);
+  CREATE OR REPLACE FUNCTION find_degree(start_value INTEGER, end_value INTEGER, start_actors INT[], all_actors INT[])
+    RETURNS TABLE (ds INTEGER, ac INT[]) AS $$
+  DECLARE
+    newactors INT[];
+  BEGIN 
 
-    create or replace function find_degree(start_value integer, end_value integer, temp_value int[], last_to int[]) 
-      returns table (ds integer, ac int[]) as $$
-      DECLARE
-        tempactors int[];
-        newactors text[];
-      begin
-          tempactors = temp_value;
-            
-          select array_agg(distinct actor_id) into newactors from acting
-            where movie_id in (select distinct movie_id from acting where actor_id in (select unnest(tempactors)))
-            and actor_id not in (select (unnest(last_to))::integer) and actor_id != %d;
-            
-          return query select start_value, tempactors;
-            
-          if start_value < end_value then
-            return query select * from find_degree(start_value + 1, end_value, newactors::int[], array_cat(last_to, newactors::int[])::int[]);
-          end if;
-      end;
-    $$ language plpgsql;
-    
-    create or replace view get_actors as
-        select * from find_degree(1, %d, (select actors from degrees where degree = 1), (select actors from degrees where degree = 1));
+    SELECT array_agg(DISTINCT actor_id) INTO newactors FROM acting ac
+    WHERE EXISTS (SELECT DISTINCT movie_id FROM acting WHERE (actor_id = any(start_actors)) AND ac.movie_id = movie_id)
+          AND NOT (actor_id = any(all_actors));
+
+    RETURN QUERY SELECT start_value, newactors;
+
+    IF start_value < end_value THEN 
+      RETURN QUERY SELECT * FROM find_degree(start_value + 1, end_value, newactors, array_cat(all_actors, newactors)::INT[]);
+    END IF ;
+  END ;
+  $$ LANGUAGE plpgsql;
+  
+  CREATE OR REPLACE VIEW get_actors as
+    SELECT * FROM find_degree(1,%d,ARRAY [%d]::INT[],ARRAY [%d]::INT[]);
 
 QUERY;
 
-dbQuery($db, mkSQL($query, $actor_id[0], $actor_id[0], $actor_id[0], $end));
+dbQuery($db, mkSQL($query, $end, $actor_id[0], $actor_id[0]));
 
 $index = 1;
 for ($i = $start; $i <= $end; $i++) {
     $get_actors = <<<GETACTORS
-    SELECT name FROM actor where id in (select unnest(ac) from get_actors where ds = %d) ORDER BY lower(name) ASC;
+    SELECT name 
+    FROM actor 
+    WHERE id IN 
+      (SELECT unnest(ac) 
+              FROM get_actors 
+              WHERE ds = %d) 
+    ORDER BY lower(name) ASC;
 GETACTORS;
     $res = dbQuery($db, mkSQL($get_actors, $i));
     $index = show_actors($index, $i, $res);
@@ -92,10 +81,13 @@ function show_actors($index,$ds, $res) {
     return $index;
 }
 
-$query = <<<DROP
-    drop index ac;
-    drop index a;
-DROP;
+$query = <<<DROPSTUFF
+    DROP INDEX ac;
+    DROP INDEX a;
+    DROP VIEW get_actors;
+    DROP FUNCTION find_degree(start_value INTEGER, end_value INTEGER, start_actors INT[], all_actors INT[]);
+    
+DROPSTUFF;
 
 dbQuery($db, mkSQL($query));
 
