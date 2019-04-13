@@ -13,15 +13,17 @@ if (count($argv) < 2) exit("$usage\n");
 
 // firstly, we need get the actor
 $title = $argv[1];
+$title = strtolower($title);
 $title = "%".$title."%";
 
 $query = <<<QUERY
     SELECT m.title, m.year, m.content_rating, ra.imdb_score, string_agg(g.genre,',' order by g.genre ASC ) as genre
-    FROM movie m, rating ra, genre g
-    WHERE ra.movie_id = m.id AND g.movie_id =  m.id AND m.id in (
-        SELECT id FROM movie WHERE lower(title) LIKE %s
+    FROM movie m LEFT OUTER JOIN rating ra ON m.id = ra.movie_id
+                 LEFT OUTER JOIN genre g ON m.id = g.movie_id
+    WHERE EXISTS (
+        SELECT mo.id FROM movie mo WHERE lower(title) LIKE %s AND mo.id = m.id
     ) GROUP BY m.title, m.year, m.content_rating, ra.imdb_score
-    ORDER BY m.year ASC , ra.imdb_score DESC, m.title ASC ;
+    ORDER BY m.year ASC , ra.imdb_score DESC, m.title ASC;
 QUERY;
 
 $res = dbQuery($db, mkSQL($query, $title));

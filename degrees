@@ -9,12 +9,14 @@ $usage = "Usage: $argv[0] Name M N";
 $db = dbConnect(DB_CONNECTION);
 
 // Check arguments
-if (count($argv) < 4) exit("$usage\n");
+if (count($argv) < 4 or count($argv) > 4) exit("$usage\n");
 
 // firstly, we need get the actor
 $name = $argv[1];
 $start = $argv[2];
 $end = $argv[3];
+
+if ($start < 1 or $end > 6 or $start > $end) exit("$usage\n");
 
 $get_actor_id = <<<ACTORID
     SELECT id FROM actor where lower(name) = lower(%s);

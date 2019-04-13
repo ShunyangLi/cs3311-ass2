@@ -10,7 +10,7 @@ $usage = "Usage: $argv[0] Actor Actor";
 $db = dbConnect(DB_CONNECTION);
 
 // Check arguments
-if (count($argv) < 2) exit("$usage\n");
+if (count($argv) < 2 or count($argv) > 3) exit("$usage\n");
 
 // firstly, we need get the actor
 $first_actor = $argv[1];
@@ -43,7 +43,7 @@ $query = <<<QUERY
             
             RETURN QUERY SELECT start_value, newactors;
             
-            IF start_value < end_value OR NOT ( %d = any(all_actors) ) THEN 
+            IF start_value < end_value THEN 
               RETURN QUERY SELECT * FROM find_degree(start_value + 1, end_value, newactors, array_cat(all_actors, newactors)::INT[]);
             END IF ;
         END ;
@@ -87,7 +87,7 @@ $query = <<<QUERY
 
 QUERY;
 
-dbQuery($db, mkSQL($query, $actor2[0], $actor1[0], $actor1[0], $actor1[0],$actor2[0], $actor2[0]));
+dbQuery($db, mkSQL($query, $actor1[0], $actor1[0], $actor1[0],$actor2[0], $actor2[0]));
 
 $query = <<<GET
     WITH RECURSIVE shortest(_from,_to,vv) AS (
@@ -127,6 +127,10 @@ if (count($final) > 1) {
     }
 } else {
     $last = $final[0];
+}
+
+if ($last == null) {
+    return;
 }
 
 sort($last);

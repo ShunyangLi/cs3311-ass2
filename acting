@@ -16,15 +16,16 @@ $actor = $argv[1];
 
 // TODO if year is empty, then output it at the end
 $query = <<< QUERY
-      SELECT m.title, di.name, m.year, m.content_rating, ra.imdb_score
-      FROM movie m, director di, rating ra
-      WHERE m.id in (
-        SELECT ai.movie_id
-        FROM actor ac, acting ai
-        WHERE lower(ac.name) = lower(%s)
-          AND ai.actor_id = ac.id
-      ) AND di.id = m.director_id
-      AND ra.movie_id = m.id ORDER BY m.year NULLS LAST, m.title;
+  SELECT m.title, di.name, m.year, m.content_rating, ra.imdb_score
+  FROM movie m LEFT OUTER JOIN director di ON m.director_id = di.id 
+               LEFT OUTER JOIN rating ra on m.id = ra.movie_id
+  WHERE EXISTS (
+    SELECT ai.movie_id
+    FROM actor ac INNER JOIN acting ai
+    ON lower(ac.name) = lower(%s)
+      AND ai.actor_id = ac.id
+    AND ai.movie_id = m.id
+  ) ORDER BY m.year NULLS LAST , m.title;
 QUERY;
 
 $res = dbQuery($db, mkSQL($query, $actor));
@@ -32,17 +33,23 @@ $res = dbQuery($db, mkSQL($query, $actor));
 // Iterate through the results and print
 $index = 1;
 while ($tuple = dbNext($res)) {
-    echo "$index. $tuple[0] -- $tuple[1] (";
+    echo "$index. $tuple[0] -- ";
+
+    if (!empty($tuple[1])) {
+      echo "$tuple[1] ";
+    }
+
+    echo "(";
     if (!empty($tuple[2])) {
-        echo  "$tuple[2]";
+        echo  "$tuple[2], ";
     }
 
     if (!empty($tuple[3])) {
-        echo  ", $tuple[3]";
+        echo  "$tuple[3], ";
     }
 
     if (!empty($tuple[4])) {
-        echo ", $tuple[4]";
+        echo "$tuple[4]";
     }
 
     echo ")\n";

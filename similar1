@@ -28,9 +28,9 @@ $query = <<<QUERY
     
    create or replace view search_movie as
     select m.id, array_agg(g.genre) as genre, array_agg(k.keyword) as keyword
-    from movie m, genre g, keyword k
-    where m.id = g.movie_id and m.id = k.movie_id and m.id in (
-        SELECT id FROM movie WHERE lower(m.title) = lower(%s)
+    from movie m LEFT OUTER JOIN genre g ON m.id = g.movie_id LEFT OUTER JOIN keyword k ON k.movie_id = m.id
+    where EXISTS (
+        SELECT mo.id FROM movie mo WHERE lower(mo.title) = lower(%s) and m.id = mo.id
     ) group by m.id;
     
     CREATE OR REPLACE VIEW rest_genre as

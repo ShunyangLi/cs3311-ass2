@@ -1,0 +1,44 @@
+Query failed
+   CREATE OR REPLACE FUNCTION intersection(anyarray, anyarray) RETURNS anyarray
+   as $$
+        SELECT ARRAY(
+            SELECT UNNEST($1)
+            INTERSECT
+            SELECT UNNEST($2)
+        );
+    $$ language sql;
+    
+   create or replace view search_movie as
+    select m.id, array_agg(g.genre::text) as genre, array_agg(k.keyword::text) as keyword
+    from movie m, genre g, keyword k
+    where m.id = g.movie_id and m.id = k.movie_id and m.id in (
+        SELECT id FROM movie WHERE lower(m.title) = lower('SE7en')
+    ) group by m.id;
+    
+    CREATE OR REPLACE VIEW rest_genre as
+      SELECT m.id, array_agg(g.genre::text) as genre
+      FROM movie m left outer join genre g
+      ON   m.id = g.movie_id
+      GROUP BY m.id;
+      
+    CREATE OR REPLACE VIEW rest_keyword as
+      SELECT m.id, array_agg(k.keyword::text) as keyword
+      FROM movie m left outer join keyword k
+      ON   k.movie_id =  m.id
+      GROUP BY m.id;
+    
+   create or replace view genre_keyword_compare as
+    select rk.id, COALESCE(array_length(intersection(sm.genre, rg.genre), 1),0) as genre,
+    COALESCE(array_length(intersection(sm.keyword, rk.keyword), 1),0) as keyword
+    FROM search_movie sm, rest_genre rg, rest_keyword rk WHERE rk.id = rg.id;
+    
+   create or replace view final_res as
+    select m.title, m.year, ra.imdb_score, ra.num_voted_users, fr.genre, fr.keyword
+    from genre_keyword_compare fr, movie m, rating ra
+    where fr.id = m.id and ra.movie_id = m.id and lower(m.title) <> lower('SE7en')
+    Order by genre DESC , keyword DESC, imdb_score DESC, num_voted_users DESC;
+    
+   select * from final_res where genre is not null limit 10;
+in '/Users/lsy/Desktop/COMP3311/assign/a2/db.php', line 25, _dbError()
+in '/Users/lsy/Desktop/COMP3311/assign/a2/similar', line 63, dbQuery()
+

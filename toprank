@@ -9,13 +9,18 @@ $usage = "Usage: $argv[0] K StartYear EndYear\nUsage: $argv[0] Genres K StartYea
 $db = dbConnect(DB_CONNECTION);
 
 // Check arguments
-if (count($argv) < 4) exit("$usage\n");
+if (count($argv) < 4 or count($argv) > 5) exit("$usage\n");
 
 // firstly, we need get the actor
 if (count($argv) == 4) {
+    if ($argv[1] < 1 or $argv[1] > 1000) exit("$usage\n");
+    if ($argv[2] > $argv[3] or $argv[2] < 1900 or $argv[3] >= 2020) exit("$usage\n");
 
     three_args($db, $argv[2], $argv[3], $argv[1]);
 } elseif (count($argv) == 5) {
+    if ($argv[2] < 1 or $argv[2] > 1000) exit("$usage\n");
+    if ($argv[3] > $argv[4] or $argv[3] < 1900 or $argv[4] >= 2020) exit("$usage\n");
+
     $all_genres = $argv[1];
     $limit = $argv[2];
     $start = $argv[3];
@@ -27,14 +32,22 @@ if (count($argv) == 4) {
     $genres = explode("&", $all_genres);
     // beacause i merge all the genre with ASC order
     // so i need to sort here also
+    $genres = make_case($genres);
     sort($genres);
-
     $genre .= join("%", $genres);
     $genre .= "%";
 
     four_args($db, $genre,$start,$end,$limit);
 }
 
+
+function make_case ($genres) {
+    for ($i = 0; $i < count($genres); $i ++) {
+        $genres[$i] = strtolower($genres[$i]);
+    }
+
+    return $genres;
+}
 
 
 
@@ -54,7 +67,7 @@ function four_args ($db, $genre, $start, $end, $limit) {
     make_view($db, $start, $end);
 
     $query = <<<QUE
-    select * from task3 where genre like %s  limit %d; 
+    select * from task3 where lower(genre) like %s  limit %d; 
 QUE;
 
     $res = dbQuery($db, mkSQL($query, $genre, $limit));
@@ -66,10 +79,11 @@ function make_view($db, $start, $end) {
 
     $view = <<<MAKEVIEW
     CREATE OR REPLACE VIEW task3 AS
-    SELECT m.title, m.year, m.content_rating, m.lang, ra.imdb_score, string_agg(g.genre,',' order by g.genre ASC ) as genre, ra.num_voted_users
-    FROM movie m, rating ra, genre g
-    WHERE ra.movie_id = m.id AND g.movie_id =  m.id AND m.id in (
-        SELECT id FROM movie WHERE m.year >= %d AND m.year <= %d
+    SELECT m.title, m.year, m.content_rating, m.lang, ra.imdb_score, 
+           string_agg(g.genre,',' order by g.genre ASC ) as genre, ra.num_voted_users
+    FROM movie m LEFT OUTER JOIN rating ra ON m.id = ra.movie_id LEFT OUTER JOIN genre g ON m.id = g.movie_id
+    WHERE EXISTS (
+        SELECT mo.id FROM movie mo WHERE mo.year >= %d AND mo.year <= %d AND m.id = mo.id
     ) GROUP BY m.title, m.year, m.content_rating, ra.imdb_score, ra.num_voted_users, m.lang
     ORDER BY imdb_score DESC, num_voted_users DESC ;
 MAKEVIEW;
@@ -101,10 +115,10 @@ function show_res($res) {
         echo ")";
         echo " [";
         if (!empty($tuple[4])) {
-            echo "$tuple[4]";
+            echo "$tuple[4], ";
         }
         if (!empty($tuple[6])) {
-            echo ", $tuple[6]";
+            echo "$tuple[6]";
         }
 
         echo "]\n";
