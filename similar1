@@ -27,20 +27,20 @@ $query = <<<QUERY
     $$ language sql;
     
    create or replace view search_movie as
-    select m.id, array_agg(g.genre::text) as genre, array_agg(k.keyword::text) as keyword
+    select m.id, array_agg(g.genre) as genre, array_agg(k.keyword) as keyword
     from movie m, genre g, keyword k
     where m.id = g.movie_id and m.id = k.movie_id and m.id in (
         SELECT id FROM movie WHERE lower(m.title) = lower(%s)
     ) group by m.id;
     
     CREATE OR REPLACE VIEW rest_genre as
-      SELECT m.id, array_agg(g.genre::text) as genre
+      SELECT m.id, array_agg(g.genre) as genre
       FROM movie m left outer join genre g
       ON   m.id = g.movie_id
       GROUP BY m.id;
       
     CREATE OR REPLACE VIEW rest_keyword as
-      SELECT m.id, array_agg(k.keyword::text) as keyword
+      SELECT m.id, array_agg(k.keyword) as keyword
       FROM movie m left outer join keyword k
       ON   k.movie_id =  m.id
       GROUP BY m.id;
@@ -66,14 +66,14 @@ $res = dbQuery($db, mkSQL($query, $title,$title, $limit));
 $index = 1;
 while ($tuple = dbNext($res)) {
 
-    echo "$index. $tuple[0] ";
+    echo "$index. $tuple[0]";
     if (!empty($tuple[1])) {
 
-        echo  "($tuple[1])";
+        echo  " ($tuple[1])";
     }
 
     if (!empty($tuple[4])) {
-        echo  "[$tuple[4], ";
+        echo  " [$tuple[4], ";
     }
 
     echo "$tuple[5], ";

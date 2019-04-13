@@ -74,7 +74,7 @@ dbQuery($db, mkSQL($query, $actor_id[0], $actor_id[0], $actor_id[0], $end));
 $index = 1;
 for ($i = $start; $i <= $end; $i++) {
     $get_actors = <<<GETACTORS
-    SELECT name FROM actor where id in (select unnest(ac) from get_actors where ds = %d) ORDER BY name ASC;
+    SELECT name FROM actor where id in (select unnest(ac) from get_actors where ds = %d) ORDER BY lower(name) ASC;
 GETACTORS;
     $res = dbQuery($db, mkSQL($get_actors, $i));
     $index = show_actors($index, $i, $res);
