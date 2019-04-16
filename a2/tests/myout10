@@ -1,22 +1,4 @@
-#!/usr/bin/php
-<?php
-
-require("a2.php");
-
-// PROGRAM BODY BEGINS
-
-$usage = "Usage: $argv[0] MovieTitle Number";
-$db = dbConnect(DB_CONNECTION);
-
-// Check arguments
-if (count($argv) < 2) exit("$usage\n");
-
-// firstly, we need get the actor
-$title = $argv[1];
-$limit = $argv[2];
-
-
-$query = <<<QUERY
+Query failed
    CREATE OR REPLACE FUNCTION intersection(anyarray, anyarray) RETURNS anyarray
    as $$
         SELECT ARRAY(
@@ -30,7 +12,7 @@ $query = <<<QUERY
     select m.id, array_agg(g.genre::text) as genre, array_agg(k.keyword::text) as keyword
     from movie m, genre g, keyword k
     where m.id = g.movie_id and m.id = k.movie_id and m.id in (
-        SELECT id FROM movie WHERE lower(m.title) = lower(%s)
+        SELECT id FROM movie WHERE lower(m.title) = lower('THE Following')
     ) group by m.id;
     
     CREATE OR REPLACE VIEW rest_genre as
@@ -53,54 +35,10 @@ $query = <<<QUERY
    create or replace view final_res as
     select m.title, m.year, ra.imdb_score, ra.num_voted_users, fr.genre, fr.keyword
     from genre_keyword_compare fr, movie m, rating ra
-    where fr.id = m.id and ra.movie_id = m.id and lower(m.title) <> lower(%s)
+    where fr.id = m.id and ra.movie_id = m.id and lower(m.title) <> lower('THE Following')
     Order by genre DESC , keyword DESC, imdb_score DESC, num_voted_users DESC;
     
-   select * from final_res where genre is not null limit %d;
-QUERY;
+   select * from final_res where genre is not null limit 20;
+in '/Users/lsy/Desktop/COMP3311/assign/a2/db.php', line 25, _dbError()
+in '/Users/lsy/Desktop/COMP3311/assign/a2/similar', line 63, dbQuery()
 
-
-$res = dbQuery($db, mkSQL($query, $title,$title, $limit));
-
-// Iterate through the results and print
-$index = 1;
-while ($tuple = dbNext($res)) {
-
-    echo "$index. $tuple[0]";
-    if (!empty($tuple[1])) {
-
-        echo  " ($tuple[1])";
-    }
-
-    if (!empty($tuple[4])) {
-        echo  " [$tuple[4], ";
-    }
-
-    echo "$tuple[5], ";
-
-    if (!empty($tuple[2])) {
-        echo "$tuple[2], ";
-    }
-
-    if (!empty($tuple[3])) {
-        echo "$tuple[3]]\n";
-    }
-
-    $index ++;
-}
-
-// drop everything to make sure every task run well
-$query = <<<DROPVIEWS
-    DROP VIEW final_res;
-    DROP VIEW genre_keyword_compare;
-    DROP VIEW rest_keyword;
-    DROP VIEW rest_genre;
-    DROP VIEW search_movie;
-    DROP FUNCTION intersection(anyarray, anyarray);
-DROPVIEWS;
-dbQuery($db, mkSQL($query));
-
-
-
-
-?>

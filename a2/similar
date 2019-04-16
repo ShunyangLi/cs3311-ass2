@@ -66,14 +66,14 @@ $res = dbQuery($db, mkSQL($query, $title,$title, $limit));
 $index = 1;
 while ($tuple = dbNext($res)) {
 
-    echo "$index. $tuple[0]";
+    echo "$index. $tuple[0] ";
     if (!empty($tuple[1])) {
 
-        echo  " ($tuple[1])";
+        echo  "($tuple[1])";
     }
 
     if (!empty($tuple[4])) {
-        echo  " [$tuple[4], ";
+        echo  "[$tuple[4], ";
     }
 
     echo "$tuple[5], ";

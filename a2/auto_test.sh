@@ -7,8 +7,8 @@
 ./toprank "Action&Sci-Fi&Adventure" 10 2005 2005 > tests/out5
 ./toprank "Sci-Fi&Adventure&Action" 20 1920 2019 > tests/out6
 ./toprank 20 1920 2019 > tests/out7
-./similar "Happy Feet" 30 > tests/out8
-./similar "The Shawshank Redemption" 30 > tests/out9
+./similar1 "Happy Feet" 30 > tests/out8
+./similar1 "The Shawshank Redemption" 30 > tests/out9
 ./shortest "tom cruise" "Jeremy Renner" > tests/out10
 ./shortest "chris evans" "Scarlett Johansson" > tests/out11
 ./shortest "tom cruise" "Robert Downey Jr." > tests/out12
